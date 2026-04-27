@@ -16,3 +16,6 @@ export const loadReliability = () => fetchJson('reliability.json');
 export const loadMetrics = () => fetchJson('metrics.json');
 export const loadCalibrated = () => fetchJson('calibrated.json');
 export const loadSampleRows = () => fetchJson('sample_rows.json');
+export const loadCovers = () => fetchJson('covers.json');
+
+export const dataPath = (rel) => `${base}/data/${rel}`;

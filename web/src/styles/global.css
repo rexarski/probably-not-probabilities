@@ -13,8 +13,8 @@
   --blue: #7ab7ff;
 
   --serif: 'Fraunces', 'Iowan Old Style', Georgia, serif;
-  --sans: 'Inter', system-ui, sans-serif;
-  --mono: 'JetBrains Mono', ui-monospace, monospace;
+  --sans: 'Hanken Grotesk', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
 
   /* Tufte-ish layout: a single readable column with a sidenote gutter on the right. */
   --col-text: 660px;
@@ -47,8 +47,9 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-family: var(--serif);
-  font-size: 18px;
-  line-height: 1.65;
+  font-size: 17px;
+  line-height: 1.6;
+  font-variation-settings: 'opsz' 24;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -77,25 +78,30 @@ h1,
 h2,
 h3 {
   font-family: var(--serif);
-  letter-spacing: -0.01em;
   color: var(--ink);
 }
 h1 {
   font-size: clamp(42px, 6vw, 72px);
-  line-height: 1.05;
+  line-height: 1.02;
   font-weight: 700;
+  letter-spacing: -0.025em;
+  font-variation-settings: 'opsz' 144;
   margin: 0 0 24px;
 }
 h2 {
   font-size: clamp(28px, 3.4vw, 42px);
-  line-height: 1.15;
+  line-height: 1.12;
   font-weight: 600;
-  margin: 80px 0 20px;
+  letter-spacing: -0.018em;
+  font-variation-settings: 'opsz' 96;
+  margin: 120px 0 24px;
 }
 h3 {
   font-size: 22px;
   line-height: 1.25;
   font-weight: 600;
+  letter-spacing: -0.008em;
+  font-variation-settings: 'opsz' 36;
   margin: 40px 0 12px;
 }
 
@@ -157,13 +163,15 @@ hr {
   align-items: start;
 }
 .with-sidenote .sidenote {
-  font-family: var(--sans);
-  font-size: 13px;
-  line-height: 1.55;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 15px;
+  line-height: 1.5;
   color: var(--ink-soft);
   border-left: 2px solid var(--green-dim);
   padding-left: 14px;
   margin-top: 6px;
+  font-variation-settings: 'opsz' 18;
 }
 
 @media (max-width: 980px) {
@@ -175,7 +183,7 @@ hr {
     border-top: 1px solid var(--rule);
     padding-left: 0;
     padding-top: 10px;
-    font-size: 12.5px;
+    font-size: 14.5px;
   }
 }
 
@@ -263,8 +271,7 @@ hr {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  border-top: 1px solid var(--rule);
-  padding: 32px 0 48px;
+  padding: 48px 0 56px;
   margin: 0 0 24px;
   position: relative;
 }
@@ -288,27 +295,6 @@ hr {
   max-width: var(--col-text, 640px);
   margin: 0;
 }
-.part-intro .part-cue {
-  position: absolute;
-  left: 0;
-  bottom: 24px;
-  font-family: var(--sans);
-  font-size: 11px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--ink-soft);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  opacity: 0.75;
-}
-.part-intro .part-cue::after {
-  content: '';
-  width: 1px;
-  height: 24px;
-  background: linear-gradient(var(--green-soft), transparent);
-}
-
 /* ---------- Stat callouts ---------- */
 .stats {
   display: grid;
@@ -334,11 +320,13 @@ hr {
   font-size: 24px;
   color: var(--green-soft);
   font-weight: 600;
+  font-feature-settings: 'tnum' 1, 'zero' 1;
 }
 .stat .delta {
   font-family: var(--mono);
   font-size: 11px;
   color: var(--ink-soft);
+  font-feature-settings: 'tnum' 1;
 }
 
 /* ---------- Buttons / pills ---------- */

@@ -10,6 +10,7 @@
   import { palette } from '$lib/theme.js';
   import { inView, revealOnView } from '$lib/scrollytelling.js';
 
+  import HeroMosaic from '$lib/HeroMosaic.svelte';
   import ReliabilityDiagram from '$lib/charts/ReliabilityDiagram.svelte';
   import ScoreHistogram from '$lib/charts/ScoreHistogram.svelte';
   import GapBars from '$lib/charts/GapBars.svelte';
@@ -238,7 +239,8 @@
 <main class="page">
   <!-- ============================== HERO ============================== -->
   <header class="hero">
-    <p class="kicker">A scrollytelling essay on probability calibration</p>
+    <HeroMosaic />
+    <p class="kicker">On probability calibration</p>
     <h1>
       Probably <span class="green">Not</span><br />
       Probabilities
@@ -270,7 +272,6 @@
         Three classifiers, one ranking — and three completely different stories
         about what their scores actually mean.
       </p>
-      <div class="part-cue" aria-hidden="true">scroll</div>
     </div>
 
     <div class="with-sidenote reveal" use:revealOnView>
@@ -414,7 +415,6 @@
         Ranking is forgiving. Decisions aren't — and the moment a score crosses
         a threshold, miscalibration turns into wrong answers.
       </p>
-      <div class="part-cue" aria-hidden="true">scroll</div>
     </div>
 
     <div class="with-sidenote reveal" use:revealOnView>
@@ -524,10 +524,8 @@
       <p class="part-tag">Part&nbsp;3</p>
       <h2 class="title-card">How to <span class="accent">calibrate</span></h2>
       <p class="part-blurb">
-        Two classic post-hoc fixes — Platt scaling and isotonic regression —
-        each shown as a step-by-step build, not a slider playground.
+        Two classic post-hoc fixes — Platt scaling and isotonic regression.
       </p>
-      <div class="part-cue" aria-hidden="true">scroll</div>
     </div>
 
     <p class="col reveal" use:revealOnView>
@@ -608,7 +606,7 @@
           Isotonic regression drops the parametric assumption. Given pairs
           <code>(score, label)</code>, it finds the best non-decreasing step function
           mapping scores to probabilities — solved efficiently by the
-          <em class="term">Pool Adjacent Violators</em> algorithm. More flexible than
+          <em class="term">Pool Adjacent Violators</em> (PAVA) algorithm. More flexible than
           Platt, but it can overfit on small calibration sets, since each step is
           essentially a free parameter.
         </p>
@@ -797,7 +795,7 @@
 
     <p class="col credits" style="color: var(--ink-soft); font-size: 14px;">
       Made with d3 + Svelte + scikit-learn. Code and notebooks in the
-      <a href="#">repository</a>.
+      <a href="https://github.com/rexarski/probably-not-probabilities" target="_blank" rel="noreferrer">repository</a>.
     </p>
   </section>
 </main>
@@ -811,6 +809,11 @@
     justify-content: center;
     scroll-snap-align: start;
     position: relative;
+    overflow: hidden;
+  }
+  .hero > :global(*:not(.mosaic)) {
+    position: relative;
+    z-index: 1;
   }
   .scroll-cue {
     position: absolute;
@@ -862,7 +865,7 @@
     margin: 0;
   }
   .part {
-    margin-top: 80px;
+    margin-top: 128px;
   }
   .rows-figure {
     margin: 36px 0 12px;
@@ -912,6 +915,7 @@
     font-weight: 600;
     font-size: 15px;
     color: inherit;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
   }
   /* Used by Part 2 to align the histogram with the body column and let the
      stats/confusion panels share the sidenote gutter. */

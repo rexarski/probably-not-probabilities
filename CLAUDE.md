@@ -147,6 +147,4 @@ The following references are very important as they contain all the background k
 ## Open
 
 - Threshold-picking: still a placeholder per brief; revisit only when explicitly asked.
-- `git init` + first push not yet performed (repo is currently un-tracked).
-- **Repository URL placeholder** — the credits paragraph in the outro of `+page.svelte` still has `<a href="#">repository</a>`. Replace `#` with the real GitHub URL once the repo is pushed.
 - Optional: extra design touches (user said "I will give you instructions later").
