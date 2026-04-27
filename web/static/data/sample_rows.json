@@ -1,0 +1,56 @@
+[
+  {
+    "track": "Tanpa Dirimu",
+    "artist": "Killing Me Inside",
+    "popularity": 44,
+    "is_hit": 1,
+    "p_over": 0.873,
+    "p_under": 0.586,
+    "p_base": 0.684
+  },
+  {
+    "track": "We Could Be Gold Diggers",
+    "artist": "Ina Forsman",
+    "popularity": 33,
+    "is_hit": 1,
+    "p_over": 0.734,
+    "p_under": 0.546,
+    "p_base": 0.6
+  },
+  {
+    "track": "Afternoon Skyfall",
+    "artist": "Nature Sounds",
+    "popularity": 0,
+    "is_hit": 0,
+    "p_over": 0.998,
+    "p_under": 0.751,
+    "p_base": 0.921
+  },
+  {
+    "track": "A Niente",
+    "artist": "Little Symphony",
+    "popularity": 20,
+    "is_hit": 0,
+    "p_over": 0.994,
+    "p_under": 0.716,
+    "p_base": 0.886
+  },
+  {
+    "track": "An Importanta Relationship Lesson",
+    "artist": "Jim Norton",
+    "popularity": 33,
+    "is_hit": 1,
+    "p_over": 0.0,
+    "p_under": 0.181,
+    "p_base": 0.034
+  },
+  {
+    "track": "Poema - En Vivo",
+    "artist": "Joan Sebastian",
+    "popularity": 43,
+    "is_hit": 1,
+    "p_over": 0.0,
+    "p_under": 0.185,
+    "p_base": 0.035
+  }
+]
