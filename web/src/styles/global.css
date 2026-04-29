@@ -46,12 +46,18 @@ body {
   padding: 0;
   background: var(--bg);
   color: var(--ink);
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-size: 17px;
-  line-height: 1.6;
-  font-variation-settings: 'opsz' 24;
+  line-height: 1.62;
+  font-feature-settings: 'ss01' 1, 'cv11' 1;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+}
+
+/* Body paragraphs use sans; titles, headers, sidenotes stay serif. */
+p {
+  font-family: var(--sans);
+  font-weight: 400;
 }
 
 ::selection {
@@ -94,7 +100,7 @@ h2 {
   font-weight: 600;
   letter-spacing: -0.018em;
   font-variation-settings: 'opsz' 96;
-  margin: 120px 0 24px;
+  margin: 120px 0 14px;
 }
 h3 {
   font-size: 22px;
@@ -102,7 +108,16 @@ h3 {
   font-weight: 600;
   letter-spacing: -0.008em;
   font-variation-settings: 'opsz' 36;
-  margin: 40px 0 12px;
+  margin: 36px 0 6px;
+}
+/* First paragraph immediately after a section header tightens up. */
+h2 + p,
+h3 + p,
+h2 + .col,
+h3 + .col,
+h2 + .with-sidenote,
+h3 + .with-sidenote {
+  margin-top: 0;
 }
 
 p {

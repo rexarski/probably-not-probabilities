@@ -12,7 +12,8 @@
    *   height?: number,
    *   title?: string,
    *   subtitle?: string,
-   *   activeId?: string | null
+   *   activeId?: string | null,
+   *   annotations?: Record<string, number> | null
    * }} */
   let {
     series = [],
@@ -20,7 +21,8 @@
     height = 380,
     title = 'Reliability diagram',
     subtitle = 'Predicted score vs. observed hit rate, binned',
-    activeId = null
+    activeId = null,
+    annotations = null
   } = $props();
 
   const margin = { top: 62, right: 24, bottom: 60, left: 64 };
@@ -116,6 +118,27 @@
           {/each}
         </g>
       {/each}
+
+      <!-- ECE annotations: deferred until reader scrolls into the ECE
+           introduction step. Sits in the upper-left of the plot so it
+           never collides with the curves. -->
+      {#if annotations}
+        <g class="ece-anno" transform="translate(12, 10)">
+          <text class="ece-anno-h" x="0" y="0">Expected Calibration Error</text>
+          {#each series as s, i (s.id)}
+            {@const v = annotations[s.id]}
+            {#if v != null}
+              <g transform="translate(0, {18 + i * 18})">
+                <circle cx="5" cy="-4" r="4" fill={s.color ?? palette.green} />
+                <text class="ece-anno-l" x="14" y="0">{s.label}</text>
+                <text class="ece-anno-v" x="180" y="0" text-anchor="end" fill={s.color ?? palette.green}>
+                  {v.toFixed(3)}
+                </text>
+              </g>
+            {/if}
+          {/each}
+        </g>
+      {/if}
 
       <!-- Axes -->
       <g class="axis">
@@ -238,5 +261,29 @@
     width: 14px;
     border-top: 1.5px dashed var(--ink-soft, #a7a7a2);
     display: inline-block;
+  }
+  .ece-anno {
+    animation: anno-fade 0.6s ease-out both;
+  }
+  .ece-anno-h {
+    fill: var(--ink-soft, #a7a7a2);
+    font-family: var(--sans);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .ece-anno-l {
+    fill: var(--ink, #e8e8e3);
+    font-family: var(--sans);
+    font-size: 13px;
+  }
+  .ece-anno-v {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+  }
+  @keyframes anno-fade {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
 </style>

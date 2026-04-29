@@ -95,6 +95,10 @@ The following references are very important as they contain all the background k
 - **Color palette is Spotify-noir** (`#0d0d0d` bg, `#1db954` green) with a Tufte-style sidenote gutter.
 - **Hit threshold is `popularity >= 32`**, not 80 as in the original brief. Rationale: low-30s is the domain-meaningful floor for Spotify Discover Weekly / Radio surfacing, and yields a balanced ~53/47 class split that the over/under-confident logit transforms can stretch meaningfully. The 80-cutoff path is no longer supported.
 - **Per-Part title cards** (`.part-intro`, ~64vh) front each Part as visual gates. `<hr />` dividers were removed in favour of these. `revealOnView` + `.reveal` / `.reveal-step` classes drive fade-up entrances; sliders for Platt/Isotonic were replaced with scroll-driven steps that mirror Part 1's pattern.
+- **Type system: serif headers, sans body.** Fraunces (variable, opsz-aware) for h1/h2/h3 + sidenotes; Hanken Grotesk for paragraph body and UI text. Body is `--sans` by default — paragraphs explicitly inherit it. Don't reset `body { font-family: var(--serif) }`.
+- **ECE values are gated on Part 1 step 4.** The reliability diagram component accepts an optional `annotations: Record<id, ece>` prop; the page only passes it once the reader scrolls into the ECE/Brier step (`part1Step >= 4`). The old `.ece-grid` legend below the chart is gone — single legend, in-chart annotation block.
+- **Brier formula lives in Part 1, not Part 3 §C.** ECE and Brier are both introduced in the "Two metrics, two emphases" step. Part 3 §C now references back instead of re-deriving the formula.
+- **Multiclass calibration is covered as §E** (after side-by-side). One-vs-rest Platt/iso, temperature scaling, vector/matrix scaling, Dirichlet — explicitly framed as "harder bookkeeping, same idea". Don't drop this section when refactoring Part 3.
 
 ## Files of record
 
@@ -129,6 +133,8 @@ The following references are very important as they contain all the background k
 - **Don't add features beyond what the brief asks.** Threshold-picking is a "side quest" with a placeholder; resist the urge to build it out before the user asks.
 - **"Fitted" ≠ "matches the diagonal."** When a reader sees the Platt sigmoid not tracking the reliability curve perfectly, that's the *constraint* of the family, not a bug. Platt is constrained to sigmoids; isotonic is constrained to monotone steps. Make this explicit in copy — the user got confused exactly here.
 - **Alpha tuning is hit-rate-dependent.** The over (`alpha=2.5`) and under (`alpha=0.45`) logit-transform constants were originally chosen for a 1% positive class. They happen to also work for ~53% — but if the threshold ever moves again, re-inspect ECE separation before assuming the alphas are still right.
+- **Sample-row picks are intentionally curated, not random.** First 3 rows are top-popularity tracks (>90) so most readers recognise them; remaining 3 are teaching examples (overconfident-wrong, underconfident-right). If you re-run `build_models.py` on a different CSV, double-check the famous block still surfaces household names.
+- **Sidenotes can't fit display-mode TeX.** The sidenote gutter is 240px; a `Tex display` block at typical KaTeX widths overflows. Put display-mode formulas in the main column. Sidenotes are for italic asides, not equations.
 
 ## Done (was: Next steps)
 
@@ -143,6 +149,16 @@ The following references are very important as they contain all the background k
 - [x] Platt + Isotonic switched from sliders to 3-step scroll-driven scrolly.
 - [x] Per-Part title cards + stronger reveal animations between sections.
 - [x] References list ("Further reading") added to outro of `+page.svelte`.
+- [x] Body type switched to sans (Hanken Grotesk); headers + sidenotes stay Fraunces.
+- [x] Calibration formula moved out of sidenote into main column (no more gutter overflow).
+- [x] Sample rows: first three are popularity-95+ household names (Sam Smith, Manuel Turizo, Bad Bunny).
+- [x] Tightened section-header → body spacing (h2 24→14, h3 12→6, plus first-paragraph reset).
+- [x] ECE annotations deferred to step 4 of Part 1; second legend removed.
+- [x] Reliability axes explained with a 2-row example table before the scrolly.
+- [x] "Why does the gap appear?" subsection added to Part 1 (objectives, capacity, regularisation, shift).
+- [x] Brier formula relocated to Part 1's "Two metrics, two emphases" step; Part 3 §C de-duplicated.
+- [x] §E "What about multiclass?" added — top-label vs class-wise, OvR / temperature / vector / Dirichlet.
+- [x] Outro reframed as non-prescriptive — calibration is optional unless your scores get read as probabilities.
 
 ## Open
 

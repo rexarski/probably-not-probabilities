@@ -289,20 +289,28 @@ def main() -> None:
     test_df["p_under"] = p_under
     test_df["p_base"] = p_base
 
-    # Hand-pick a representative slice
+    # Hand-pick a representative slice. We want three globally recognisable
+    # hits — picked by raw popularity, deduplicated on track name so a single
+    # smash doesn't appear twice — followed by three teaching examples that
+    # show what miscalibration looks like in practice.
     picks: list[int] = []
-    # 2 confident-correct hits
-    cand = test_df[(test_df["is_hit"] == 1) & (test_df["p_base"] > 0.6)].head(2).index.tolist()
-    picks += cand
-    # 2 overconfident-wrong (high p_over, not actually a hit)
+    famous = (
+        test_df[test_df["is_hit"] == 1]
+        .sort_values("popularity", ascending=False)
+        .drop_duplicates(subset=["track_name"])
+        .head(3)
+        .index.tolist()
+    )
+    picks += famous
+    # 1 overconfident-wrong (not actually a hit, but p_over saturates near 1)
     cand = (
         test_df[(test_df["is_hit"] == 0) & (test_df["p_over"] > 0.8)]
         .sort_values("p_over", ascending=False)
-        .head(2)
+        .head(1)
         .index.tolist()
     )
     picks += cand
-    # 2 underconfident-right (low p_under but actually a hit)
+    # 2 underconfident-right (true hits the under-confident model never commits to)
     cand = (
         test_df[(test_df["is_hit"] == 1) & (test_df["p_under"] < 0.55)]
         .sort_values("p_under")

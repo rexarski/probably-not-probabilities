@@ -82,10 +82,10 @@
     /* Soft fade on the left and bottom so the mosaic dissolves into bg
        instead of cutting off as a hard rectangle. */
     -webkit-mask-image:
-      linear-gradient(to right, transparent 0%, black 22%, black 100%),
+      linear-gradient(to right, transparent 0%, transparent 18%, black 55%, black 100%),
       linear-gradient(to bottom, black 0%, black 80%, transparent 100%);
     mask-image:
-      linear-gradient(to right, transparent 0%, black 22%, black 100%),
+      linear-gradient(to right, transparent 0%, transparent 18%, black 55%, black 100%),
       linear-gradient(to bottom, black 0%, black 80%, transparent 100%);
     -webkit-mask-composite: source-in;
     mask-composite: intersect;
@@ -94,7 +94,8 @@
     position: absolute;
     inset: 0;
     z-index: 2;
-    background: rgba(13, 13, 13, 0.32);
+    background:
+      linear-gradient(to right, rgba(13, 13, 13, 0.85) 0%, rgba(13, 13, 13, 0.5) 35%, rgba(13, 13, 13, 0.32) 65%);
     pointer-events: none;
   }
   .tile {

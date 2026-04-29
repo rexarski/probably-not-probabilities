@@ -283,10 +283,12 @@
           them really are popular hits. Calibration is a property of the score, not of
           the prediction.
         </p>
+        <p>
+          Formally, a model <code>f</code> is calibrated when
+        </p>
+        <Tex display tex={'\\Pr\\bigl[\\,Y=1 \\,\\big|\\, f(X)=p\\,\\bigr] \\;=\\; p \\quad \\forall\\, p \\in [0,1].'} />
       </div>
       <aside class="sidenote">
-        Formally: a model <code>f</code> is calibrated when
-        <Tex tex={'\\Pr[\\,Y=1 \\mid f(X)=p\\,] = p \\quad \\forall\\, p \\in [0,1].'} display />
         Accuracy and ranking quality are different properties — a model can be perfectly
         accurate yet badly calibrated, and vice-versa.
       </aside>
@@ -319,6 +321,46 @@
       of hits in each score bin. A perfect model traces the diagonal. Anything else
       tells you, at a glance, where the model is over- or under-shooting.
     </p>
+
+    <div class="col axis-key">
+      <p>
+        Read each point on the diagram as one bucket of tracks. Sort the holdout by
+        score, slice it into bins, then look at two numbers per bin: the model's mean
+        score (the <em>x</em>-axis) versus the actual hit rate inside that bin (the
+        <em>y</em>-axis). If they agree, the bin lands on the diagonal.
+      </p>
+      <table class="key-table">
+        <thead>
+          <tr>
+            <th>Bin (score range)</th>
+            <th>Tracks</th>
+            <th>Mean predicted <span>x</span></th>
+            <th>Actual hit rate <span>y</span></th>
+            <th>Reads as</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>0.55 – 0.65</code></td>
+            <td>1,830</td>
+            <td>0.61</td>
+            <td>0.58</td>
+            <td><span class="ok">close to diagonal — honest</span></td>
+          </tr>
+          <tr>
+            <td><code>0.85 – 0.95</code></td>
+            <td>1,210</td>
+            <td>0.91</td>
+            <td>0.74</td>
+            <td><span class="bad">below diagonal — over-confident</span></td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="key-caption">
+        The two rows above are the same axes the chart on the right uses — same bins,
+        same numbers, just plotted as <code>(x, y)</code> coordinates instead of cells.
+      </p>
+    </div>
 
     <div class="scrolly">
       <div class="steps">
@@ -357,16 +399,24 @@
         <div
           class="step reveal-step" use:revealOnView
           use:inView={{ onEnter: () => (part1Step = 4), threshold: 0.6 }}>
-          <h3>One number to summarise the gap</h3>
+          <h3>Two metrics, two emphases</h3>
           <p>
-            <em class="term">Expected Calibration Error</em> (ECE) bins predictions and
-            averages the absolute gap between mean predicted score and observed hit
-            rate, weighted by bin size. Lower is better. <em class="term">Brier score</em>
-            does the same job in expectation but penalises distance, not just bias.
+            <em class="term">Expected Calibration Error</em> (ECE) bins the predictions
+            and averages the absolute gap between mean predicted score and observed hit
+            rate, weighted by bin size. It's a measure of <em>bias</em> — how far the
+            curve drifts from the diagonal, on average.
           </p>
           <Tex
             display
             tex={'\\mathrm{ECE} \\;=\\; \\sum_{b=1}^{B} \\frac{n_b}{N}\\,\\bigl|\\,\\overline{p}_b \\;-\\; \\overline{y}_b\\,\\bigr|'} />
+          <p>
+            <em class="term">Brier score</em> is a per-prediction squared error against
+            the label. Unlike ECE, it doesn't bin — and unlike accuracy, it punishes
+            the <em>distance</em> of a wrong probability, not just the wrong side of a
+            threshold. So Brier drops with both better calibration and sharper, more
+            decisive scores.
+          </p>
+          <Tex display tex={'\\mathrm{Brier} \\;=\\; \\frac{1}{N}\\sum_{i=1}^{N}\\bigl(\\hat{p}_i - y_i\\bigr)^2'} />
         </div>
       </div>
       <div class="sticky">
@@ -374,30 +424,52 @@
           <ReliabilityDiagram
             series={seriesAll}
             activeId={part1Active}
+            annotations={part1Step >= 4 && metrics?.models
+              ? {
+                  well_calibrated: metrics.models.well_calibrated.ece,
+                  over_confident: metrics.models.over_confident.ece,
+                  under_confident: metrics.models.under_confident.ece
+                }
+              : null}
             title="Reliability diagram — three flavours"
             subtitle="x: mean predicted score per bin · y: actual fraction of hits · circles sized by bin count" />
-          {#if metrics?.models}
-            <div class="ece-grid">
-              <div class="ece" class:active={part1Active === 'well_calibrated'}>
-                <span class="ece-dot" style:background={palette.wellCalibrated}></span>
-                <span class="ece-l">well-calibrated</span>
-                <span class="ece-v">{metrics.models.well_calibrated.ece.toFixed(3)}</span>
-              </div>
-              <div class="ece" class:active={part1Active === 'over_confident'}>
-                <span class="ece-dot" style:background={palette.overConfident}></span>
-                <span class="ece-l">over-confident</span>
-                <span class="ece-v">{metrics.models.over_confident.ece.toFixed(3)}</span>
-              </div>
-              <div class="ece" class:active={part1Active === 'under_confident'}>
-                <span class="ece-dot" style:background={palette.underConfident}></span>
-                <span class="ece-l">under-confident</span>
-                <span class="ece-v">{metrics.models.under_confident.ece.toFixed(3)}</span>
-              </div>
-            </div>
-          {/if}
         {/if}
       </div>
     </div>
+
+    <h3>Why does the gap appear at all?</h3>
+    <p class="col">
+      Most learners optimise <em>discriminative</em> losses — cross-entropy, hinge,
+      log-loss — that reward putting the right class on the right side of the boundary.
+      Calibration isn't part of the objective, so it isn't guaranteed to fall out of
+      training. A few common ways the gap creeps in:
+    </p>
+    <ul class="col reasons">
+      <li>
+        <strong>High-capacity models</strong> — boosted trees and deep nets, fit to
+        convergence, push their outputs toward 0 or 1 to drive the loss down. Their
+        sigmoids saturate. Result: <em>over-confidence</em>.
+      </li>
+      <li>
+        <strong>Strong regularisation, early stopping, or shrinkage</strong> hold the
+        outputs back from the extremes. Logits stay close to zero, scores cluster
+        around 0.5. Result: <em>under-confidence</em>.
+      </li>
+      <li>
+        <strong>Class imbalance, resampling, or class weighting</strong> shift the prior
+        the model implicitly assumes. The threshold the model would have learned drifts
+        away from the true rate.
+      </li>
+      <li>
+        <strong>Distribution shift</strong> at inference time — different audience,
+        different period — breaks any calibration the training set bought you.
+      </li>
+    </ul>
+    <p class="col">
+      None of these are bugs. They're side-effects of optimising a different objective
+      than "honest probabilities". The gap is the price you pay; calibration is how you
+      pay it back.
+    </p>
 
     <p class="col take" use:revealOnView>
       <strong>Takeaway.</strong> A calibrated model's scores behave like true
@@ -665,10 +737,9 @@
 
     <h3>C. Brier score, before and after</h3>
     <p class="col">
-      <em class="term">Brier score</em> is a proper scoring rule:
-      <Tex tex={'\\mathrm{Brier} = \\tfrac{1}{N}\\sum_{i=1}^{N}(\\hat{p}_i - y_i)^2'} />. Unlike accuracy, it penalises both
-      direction and magnitude of probabilistic disagreement, so it drops when scores
-      become more honest, not just more discriminating.
+      We met Brier score back in Part&nbsp;1 — a proper scoring rule that punishes
+      probabilistic distance from the truth, not just the threshold-side. Calibration
+      should drop it, and below it does.
     </p>
 
     {#if calibrated && metrics}
@@ -727,6 +798,73 @@
       </div>
     {/if}
 
+    <h3>E. What about multiclass?</h3>
+    <p class="col">
+      Everything above is binary: one score, one diagonal. Multiclass needs a quick
+      detour — same idea, harder bookkeeping.
+    </p>
+    <div class="with-sidenote">
+      <div class="col">
+        <p>
+          A <em class="term">K</em>-class softmax outputs a probability vector on the
+          simplex. "Calibrated" can mean two related-but-distinct things:
+          <em>top-label</em> calibration (when the model says its top guess has
+          confidence 0.7, it's right 70&nbsp;% of the time) and <em>class-wise</em>
+          calibration (the same diagonal property holds for every class separately).
+          The full joint requirement — every probability vector matches its conditional
+          frequency — is much stricter and rarely measured directly.
+        </p>
+        <p>The practical headaches are:</p>
+        <ul class="reasons">
+          <li>
+            <strong>Less data per class.</strong> Reliability bins fragment by class, so
+            a fixed holdout buys you K-times fewer samples per curve. Isotonic, which
+            wanted &gt;1k binary samples, now wants &gt;1k <em>per class</em>.
+          </li>
+          <li>
+            <strong>Normalisation drift.</strong> Calibrate each class independently and
+            the K outputs no longer sum to 1. Either renormalise (and lose the
+            per-class fit) or use a method that respects the simplex.
+          </li>
+          <li>
+            <strong>Confounding from class imbalance.</strong> A long tail of rare
+            classes can be wildly miscalibrated without budging top-label ECE, since
+            the headline metric is dominated by the head of the distribution.
+          </li>
+        </ul>
+        <p>The usual remedies, roughly in order of complexity:</p>
+        <ul class="reasons">
+          <li>
+            <strong>One-vs-rest Platt or isotonic.</strong> Fit K binary calibrators,
+            then renormalise. Cheap, often good enough, no joint guarantees.
+          </li>
+          <li>
+            <strong>Temperature scaling.</strong> One scalar <code>T</code> divides the
+            logits before softmax: <code>p_k ∝ exp(z_k / T)</code>. A single
+            parameter, fit by NLL on a holdout. Surprisingly strong baseline for deep
+            nets — the empirical default since
+            <a href="https://arxiv.org/abs/1706.04599" target="_blank" rel="noreferrer">Guo et&nbsp;al. (2017)</a>.
+          </li>
+          <li>
+            <strong>Vector / matrix scaling.</strong> Per-class temperatures (vector) or
+            a full linear map on logits (matrix). More expressive than temperature, but
+            needs more calibration data and can overfit.
+          </li>
+          <li>
+            <strong>Dirichlet calibration.</strong> A multinomial-logistic regression on
+            the log-probability vector — preserves the simplex, generalises Platt to K
+            classes
+            (<a href="https://arxiv.org/abs/1910.12656" target="_blank" rel="noreferrer">Kull et&nbsp;al., 2019</a>).
+          </li>
+        </ul>
+      </div>
+      <aside class="sidenote">
+        Quick rule of thumb: small <code>K</code>, plenty of data → one-vs-rest
+        isotonic. Deep neural net, lots of classes, modest holdout → temperature
+        scaling is almost always the first thing to try.
+      </aside>
+    </div>
+
     <p class="col take" use:revealOnView>
       <strong>Takeaway.</strong> Calibration is cheap. Platt is two parameters and
       always tame. Isotonic is more flexible and almost always wins given enough data,
@@ -744,10 +882,31 @@
       </p>
     </div>
     <p class="col reveal" use:revealOnView>
-      Train the model the way you always do, then sanity-check its calibration on a
-      held-out set; if the curve bends away from the diagonal, fit Platt or isotonic
-      on top before you let the score touch any decision boundary other than the
-      ranking one.
+      One last thing — and an honest one. Calibration is <em>not</em> a compulsory step
+      for every classifier. It depends entirely on what you're going to do with the
+      output.
+    </p>
+    <p class="col reveal" use:revealOnView>
+      If your model only ever produces an ordered ranking, a top-1 label, or a single
+      class id, there's nothing to calibrate. The score never leaves the
+      <em>argmax</em>; its absolute value never enters a downstream calculation. Leave
+      it alone.
+    </p>
+    <p class="col reveal" use:revealOnView>
+      The moment your model emits a floating-point number that any reader will
+      <em>treat</em> as a probability, the picture changes. Once a score sits in a
+      table next to a label, someone will read it as one. They'll say "0.5 in class A
+      versus 0.25 in class B means A is twice as likely" — and unless the model is
+      calibrated, that sentence is a nicely-rendered guess. Two scores in a 2:1 ratio
+      do not, in general, mean a 2:1 likelihood ratio. They're just two scores in a
+      2:1 ratio.
+    </p>
+    <p class="col reveal" use:revealOnView>
+      So: if your output is a number that pretends to be a probability, calibrate it,
+      or at least audit it. If it isn't, don't bother. We're not here to tell anyone
+      what to do — only to point out one of the cheaper ways to make a model say what
+      it means. If anything in here landed wrong, or you've found a sharper way to
+      explain it, please write us back.
     </p>
     <p class="col reveal" use:revealOnView>
       Threshold-picking — choosing where to cut for the precision/recall trade-off you
@@ -877,45 +1036,80 @@
     margin-top: 12px;
     max-width: var(--col-text);
   }
-  .ece-grid {
-    display: flex;
-    gap: 12px;
-    margin-top: 14px;
-    flex-wrap: wrap;
-    width: 100%;
-    justify-content: space-between;
-    font-family: var(--sans);
-  }
-  .ece {
-    display: flex;
-    align-items: center;
+  .reasons {
+    list-style: none;
+    padding: 0;
+    margin: 12px 0 18px;
+    display: grid;
     gap: 10px;
+  }
+  .reasons li {
+    padding: 10px 14px 10px 16px;
+    border-left: 2px solid var(--green-dim);
+    background: var(--bg-alt);
     font-size: 15px;
-    padding: 8px 12px;
-    border-radius: 6px;
-    border: 1px solid var(--rule);
+    line-height: 1.55;
     color: var(--ink-soft);
-    transition: all 0.3s;
   }
-  .ece.active {
+  .reasons li strong {
     color: var(--ink);
-    background: rgba(255, 255, 255, 0.03);
-    border-color: var(--ink-soft);
-  }
-  .ece-dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 99px;
-  }
-  .ece-l {
-    font-size: 14px;
-  }
-  .ece-v {
-    font-family: var(--mono);
     font-weight: 600;
-    font-size: 15px;
-    color: inherit;
-    font-feature-settings: 'tnum' 1, 'zero' 1;
+  }
+  .axis-key {
+    margin: 18px 0 8px;
+  }
+  .key-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--sans);
+    font-size: 14px;
+    margin: 12px 0 10px;
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .key-table th,
+  .key-table td {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--rule);
+  }
+  .key-table thead {
+    background: var(--bg-alt);
+  }
+  .key-table th {
+    color: var(--ink-soft);
+    font-weight: 500;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .key-table th span {
+    display: inline-block;
+    margin-left: 4px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: rgba(29, 185, 84, 0.18);
+    color: var(--green-soft);
+    font-family: var(--mono);
+    font-style: italic;
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 11px;
+  }
+  .key-table tbody tr:last-child td {
+    border-bottom: 0;
+  }
+  .key-table .ok {
+    color: var(--green-soft);
+  }
+  .key-table .bad {
+    color: var(--orange);
+  }
+  .key-caption {
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin: 0;
   }
   /* Used by Part 2 to align the histogram with the body column and let the
      stats/confusion panels share the sidenote gutter. */
