@@ -93,7 +93,7 @@
         {/if}
       {/each}
       <text class="axlabel" x={innerW / 2} y={innerH + 34} text-anchor="middle">
-        Score bin (centre)
+        Score bin (center)
       </text>
     </g>
   </svg>

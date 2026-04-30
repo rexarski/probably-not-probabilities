@@ -1,7 +1,7 @@
 // Tiny IntersectionObserver-backed Svelte action for scrollytelling steps.
 // Usage:  <div use:inView={{ onEnter, onExit, threshold: 0.5 }}>
 // onEnter and onExit get the element. We use rootMargin to bias activation
-// so the active step is around the centre of the viewport, which feels right
+// so the active step is around the center of the viewport, which feels right
 // for stepper UIs.
 
 export function inView(node, params = {}) {

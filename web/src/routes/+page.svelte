@@ -17,6 +17,7 @@
   import PlattCurve from '$lib/charts/PlattCurve.svelte';
   import IsotonicSteps from '$lib/charts/IsotonicSteps.svelte';
   import SampleRows from '$lib/charts/SampleRows.svelte';
+  import RocCurves from '$lib/charts/RocCurves.svelte';
   import Tex from '$lib/Math.svelte';
 
   /** @type {any} */ let holdout = $state(null);
@@ -25,30 +26,40 @@
   /** @type {any} */ let calibrated = $state(null);
   /** @type {any[]} */ let sampleRows = $state([]);
 
-  // ----- Part 1 state -----
-  let part1Step = $state(0); // 0 = sample rows, 1 = well, 2 = over, 3 = under, 4 = ECE
-  let visibleRows = $state(0);
+  // Section labels for the A/B/C presentation in Part 1. The internal model
+  // ids stay the same (well_calibrated / over_confident / under_confident)
+  // so the data joins are unchanged; only what the reader sees is masked.
+  const MODEL_LETTER = {
+    well_calibrated: 'A',
+    over_confident: 'B',
+    under_confident: 'C'
+  };
+  const MODEL_COLOR = {
+    well_calibrated: palette.wellCalibrated,
+    over_confident: palette.overConfident,
+    under_confident: palette.underConfident
+  };
 
-  // ----- Part 2 state -----
+  // ----- Part 1 (was Part 2) state -----
   let modelChoice = $state('over_confident'); // 'well_calibrated' | 'over_confident' | 'under_confident'
   let threshold = $state(0.5);
 
+  // ----- Part 2 (was Part 1) state -----
+  let part2Step = $state(0); // 0 = sample rows, 1 = well, 2 = over, 3 = under, 4 = ECE
+  let visibleRows = $state(0);
+
   // ----- Part 3 state -----
-  // Scroll-driven steps for the Platt and isotonic mini-stories.
-  // Both default to 0 (pre-view neutral state) and advance to the
-  // fitted/full configuration as the reader scrolls past each step.
   let plattStep = $state(0); // 0 = pre-view, 1 = identity, 2 = steepness only, 3 = MLE fit
   let isoStep = $state(0);   // 0 = pre-view, 1 = coarse, 2 = mid, 3 = full
   let calibMethod = $state('platt'); // 'raw' | 'platt' | 'isotonic'
 
-  // Platt curve parameters per step
   const plattAByStep = $derived.by(() => {
     const fitted = calibrated?.platt?.params?.a ?? 2.9;
     switch (plattStep) {
       case 0: return 1;
       case 1: return 1;
       case 2: return 5;
-      default: return fitted; // step 3
+      default: return fitted;
     }
   });
   const plattBByStep = $derived.by(() => {
@@ -57,20 +68,22 @@
       case 0: return 0;
       case 1: return 0;
       case 2: return 0;
-      default: return fitted; // step 3
+      default: return fitted;
     }
   });
 
-  // Isotonic knot count per step (0 in component = "all")
   const isoKnotsByStep = $derived.by(() => {
     switch (isoStep) {
       case 0: return 5;
       case 1: return 5;
       case 2: return 16;
-      default: return 0; // full PAVA
+      default: return 0;
     }
   });
   const isoProbeByStep = $derived(isoStep >= 3 ? 0.7 : isoStep === 2 ? 0.55 : 0.4);
+
+  // ----- Section nav state -----
+  let activeSection = $state('hero');
 
   onMount(async () => {
     [holdout, reliability, metrics, calibrated, sampleRows] = await Promise.all([
@@ -80,11 +93,24 @@
       loadCalibrated(),
       loadSampleRows()
     ]);
+
+    const ids = ['part-1', 'part-2', 'part-3', 'outro'];
+    const targets = ids
+      .map((id) => document.getElementById(id))
+      .filter((el) => el);
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) activeSection = e.target.id;
+        }
+      },
+      { rootMargin: '-35% 0px -55% 0px', threshold: 0 }
+    );
+    targets.forEach((t) => io.observe(t));
+    return () => io.disconnect();
   });
 
-  // Cycle the sample rows on a timer once the figure is in view.
-  // Track in-view + data-loaded separately so whichever resolves last can
-  // still kick off the animation.
+  // Sample-row cycling — same as before, just renamed to part2.
   let rowTimer;
   let rowsInView = $state(false);
   let rowAnimDone = $state(false);
@@ -108,11 +134,10 @@
     rowsInView = false;
   }
   $effect(() => {
-    // re-check when sampleRows arrives after the figure is already in view
     if (sampleRows.length && rowsInView) tickRowAnim();
   });
 
-  // ----- Reliability series for Part 1 (filtered by step) -----
+  // ----- Reliability series for Part 2 (filtered by step) -----
   const seriesAll = $derived.by(() => {
     if (!reliability) return [];
     return [
@@ -137,26 +162,20 @@
     ];
   });
 
-  const part1Active = $derived(
-    part1Step === 1
+  const part2Active = $derived(
+    part2Step === 1
       ? 'well_calibrated'
-      : part1Step === 2
+      : part2Step === 2
         ? 'over_confident'
-        : part1Step === 3
+        : part2Step === 3
           ? 'under_confident'
           : null
   );
 
-  // ----- Part 2 derived -----
-  const part2Model = $derived(metrics?.models?.[modelChoice]);
-  const part2Reliability = $derived(reliability?.[modelChoice] ?? []);
-  const part2Color = $derived(
-    modelChoice === 'well_calibrated'
-      ? palette.wellCalibrated
-      : modelChoice === 'over_confident'
-        ? palette.overConfident
-        : palette.underConfident
-  );
+  // ----- Part 1 derived (histogram + threshold + ROC) -----
+  const part1Model = $derived(metrics?.models?.[modelChoice]);
+  const part1Reliability = $derived(reliability?.[modelChoice] ?? []);
+  const part1Color = $derived(MODEL_COLOR[modelChoice]);
 
   // Decision counts at current threshold from raw scores
   const decisionStats = $derived.by(() => {
@@ -167,10 +186,7 @@
         : modelChoice === 'over_confident'
           ? holdout.p_over
           : holdout.p_under;
-    let tp = 0,
-      fp = 0,
-      tn = 0,
-      fn = 0;
+    let tp = 0, fp = 0, tn = 0, fn = 0;
     for (let i = 0; i < arr.length; i++) {
       const yhat = arr[i] >= threshold ? 1 : 0;
       const y = holdout.y_true[i];
@@ -181,8 +197,85 @@
     }
     const precision = tp + fp === 0 ? 1 : tp / (tp + fp);
     const recall = tp + fn === 0 ? 0 : tp / (tp + fn);
-    const accuracy = (tp + tn) / arr.length;
-    return { tp, fp, tn, fn, precision, recall, accuracy, n: arr.length };
+    return { tp, fp, tn, fn, precision, recall, n: arr.length };
+  });
+
+  // ROC + AUC for each model. Computed once when holdout arrives.
+  // Because over/under-confident are monotone transforms of the baseline
+  // scores, ranking is preserved and the three ROC curves are essentially
+  // identical — that is the pedagogical point.
+  function computeRoc(y, scores) {
+    const n = scores.length;
+    const idx = new Array(n);
+    for (let i = 0; i < n; i++) idx[i] = i;
+    idx.sort((a, b) => scores[b] - scores[a]);
+    let P = 0;
+    for (let i = 0; i < n; i++) if (y[i] === 1) P++;
+    const N = n - P;
+    if (P === 0 || N === 0) return { points: [{ fpr: 0, tpr: 0 }, { fpr: 1, tpr: 1 }], auc: 0.5 };
+    const points = [{ fpr: 0, tpr: 0 }];
+    let tp = 0, fp = 0;
+    let prev = Infinity;
+    let auc = 0;
+    let lastFpr = 0, lastTpr = 0;
+    for (let k = 0; k < n; k++) {
+      const i = idx[k];
+      const s = scores[i];
+      if (s !== prev) {
+        const fpr = fp / N, tpr = tp / P;
+        if (k > 0) {
+          points.push({ fpr, tpr });
+          auc += (fpr - lastFpr) * (tpr + lastTpr) / 2;
+          lastFpr = fpr; lastTpr = tpr;
+        }
+        prev = s;
+      }
+      if (y[i] === 1) tp++;
+      else fp++;
+    }
+    const fpr = fp / N, tpr = tp / P;
+    points.push({ fpr, tpr });
+    auc += (fpr - lastFpr) * (tpr + lastTpr) / 2;
+    // Downsample for SVG path efficiency — the curves can have thousands of
+    // breakpoints; ~600 is plenty for a smooth render at this size.
+    const target = 600;
+    if (points.length <= target) return { points, auc };
+    const step = Math.ceil(points.length / target);
+    const sampled = [];
+    for (let i = 0; i < points.length; i += step) sampled.push(points[i]);
+    if (sampled[sampled.length - 1] !== points[points.length - 1])
+      sampled.push(points[points.length - 1]);
+    return { points: sampled, auc };
+  }
+
+  const rocSeries = $derived.by(() => {
+    if (!holdout) return [];
+    const a = computeRoc(holdout.y_true, holdout.p_base);
+    const b = computeRoc(holdout.y_true, holdout.p_over);
+    const c = computeRoc(holdout.y_true, holdout.p_under);
+    return [
+      {
+        id: 'well_calibrated',
+        label: 'Model A',
+        color: palette.wellCalibrated,
+        points: a.points,
+        auc: a.auc
+      },
+      {
+        id: 'over_confident',
+        label: 'Model B',
+        color: palette.overConfident,
+        points: b.points,
+        auc: b.auc
+      },
+      {
+        id: 'under_confident',
+        label: 'Model C',
+        color: palette.underConfident,
+        points: c.points,
+        auc: c.auc
+      }
+    ];
   });
 
   // ----- Part 3 derived -----
@@ -212,9 +305,6 @@
     ];
   });
 
-  // Auto-cycle highlight raw → platt → isotonic when the comparison chart
-  // is in view, so the reader sees the curves bend back to the diagonal one
-  // at a time. User clicks override.
   let cycleTimer;
   $effect(() => {
     if (part3Cycle) {
@@ -236,9 +326,27 @@
   <title>Probably Not Probabilities — a calibration walk-through</title>
 </svelte:head>
 
+<!-- ============================== TIMELINE NAV ============================== -->
+<aside class="toc" aria-label="Article sections">
+  <ul>
+    <li class:active={activeSection === 'part-1'}>
+      <a href="#part-1"><span class="num">01</span><span class="lab">Performance ≠ decisions</span></a>
+    </li>
+    <li class:active={activeSection === 'part-2'}>
+      <a href="#part-2"><span class="num">02</span><span class="lab">What is calibration</span></a>
+    </li>
+    <li class:active={activeSection === 'part-3'}>
+      <a href="#part-3"><span class="num">03</span><span class="lab">How to calibrate</span></a>
+    </li>
+    <li class:active={activeSection === 'outro'}>
+      <a href="#outro"><span class="num">04</span><span class="lab">Where it leaves you</span></a>
+    </li>
+  </ul>
+</aside>
+
 <main class="page">
   <!-- ============================== HERO ============================== -->
-  <header class="hero">
+  <header class="hero" id="hero">
     <HeroMosaic />
     <p class="kicker">On probability calibration</p>
     <h1>
@@ -254,7 +362,7 @@
       <em class="term">calibration</em>, and it's what this piece is about.
     </p>
     <p class="lede col" style="color: var(--ink-soft); font-size: 16px;">
-      We trained two flavours of a hit-song classifier on
+      We trained two flavors of a hit-song classifier on
       <a href="https://www.kaggle.com/datasets/maharshipandya/-spotify-tracks-dataset" target="_blank" rel="noreferrer">114k Spotify tracks</a>
       — one made over-confident, one under-confident — to see what miscalibration
       actually looks like, why it ruins downstream decisions, and how two classic
@@ -263,42 +371,180 @@
     <div class="scroll-cue" aria-hidden="true">scroll</div>
   </header>
 
-  <!-- ============================== PART 1 ============================== -->
-  <section class="part part-1">
+  <!-- ============================== PART 1 (was Part 2): WHY IT MATTERS ============================== -->
+  <section class="part part-1" id="part-1">
     <div class="part-intro reveal" use:revealOnView>
       <p class="part-tag">Part&nbsp;1</p>
-      <h2 class="title-card">What is <span class="accent">calibration</span>?</h2>
+      <h2 class="title-card">
+        High model performance does not guarantee
+        <span class="accent">correct decisions</span>
+      </h2>
       <p class="part-blurb">
-        Three classifiers, one ranking — and three completely different stories
-        about what their scores actually mean.
+        Three classifiers — call them <strong>A</strong>, <strong>B</strong>, and
+        <strong>C</strong> — that rank tracks identically and post the same headline
+        AUC. The moment a threshold is drawn, they part ways.
       </p>
     </div>
 
     <div class="with-sidenote reveal" use:revealOnView>
       <div class="col">
         <p>
-          A classifier is <em class="term">calibrated</em> when, among all the cases it
-          rates around <code>p</code>, roughly a <code>p</code>-fraction are actually
-          positive. So among songs the model labels with score 0.7, about 70&nbsp;% of
-          them really are popular hits. Calibration is a property of the score, not of
-          the prediction.
+          We have three different models that all stack tracks in the same order. By any
+          ranking-only metric — AUC, average precision — they're indistinguishable.
+          But ranking is the easy half. Decisions aren't. The moment you compare a score
+          to a threshold — to send a song to a "promote" queue, to alert a doctor, to
+          flag a transaction — you're treating that score as if it meant something.
+          And there, the three models fall apart.
+        </p>
+      </div>
+      <aside class="sidenote">
+        Threshold 0.5 is convention, not law. The right cutoff depends on the cost
+        ratio between false positives and false negatives — and on whether the score
+        you're cutting against is a probability in the first place.
+      </aside>
+    </div>
+
+    <div class="pill-row col">
+      {#each [
+        { id: 'well_calibrated', label: 'Model A' },
+        { id: 'over_confident', label: 'Model B' },
+        { id: 'under_confident', label: 'Model C' }
+      ] as opt}
+        <button
+          class="pill"
+          class:active={modelChoice === opt.id}
+          onclick={() => (modelChoice = opt.id)}>
+          <span class="pill-dot" style:background={MODEL_COLOR[opt.id]}></span>
+          {opt.label}
+        </button>
+      {/each}
+    </div>
+
+    <p class="col">
+      Drag the <em>threshold</em> below — or click anywhere on the histogram — to see
+      what changes when you decide a different point is "promote-worthy". The ROC
+      panel on the right shows ranking quality for all three models; the histogram
+      shows how each one distributes its scores.
+    </p>
+
+    {#if part1Model && decisionStats}
+      <div class="figure-grid col-wide">
+        <ScoreHistogram
+          bins={part1Model.histogram}
+          {threshold}
+          color={part1Color}
+          onThreshold={(t) => (threshold = t)}
+          title="Score distribution — Model {MODEL_LETTER[modelChoice]}"
+          subtitle="Click or drag to pick a threshold" />
+
+        <div class="roc-wrap">
+          {#if rocSeries.length}
+            <RocCurves
+              series={rocSeries}
+              activeId={modelChoice}
+              title="ROC — ranking quality"
+              subtitle="Three curves, one path → identical AUC" />
+          {/if}
+          <p class="roc-caption">
+            Same ranks, same AUC. AUC sees only order, so it can't tell A, B, and
+            C apart — even though they will make very different decisions below.
+          </p>
+        </div>
+
+        <div class="stat-row">
+          <div class="stat">
+            <div class="label">Threshold</div>
+            <div class="value">{threshold.toFixed(2)}</div>
+          </div>
+          <div class="stat">
+            <div class="label">Precision</div>
+            <div class="value">{(decisionStats.precision * 100).toFixed(1)}%</div>
+            <div class="delta">tp / (tp + fp)</div>
+          </div>
+          <div class="stat">
+            <div class="label">Recall</div>
+            <div class="value">{(decisionStats.recall * 100).toFixed(1)}%</div>
+            <div class="delta">tp / (tp + fn)</div>
+          </div>
+        </div>
+
+        <div class="confusion">
+          <div class="cm cm-tp"><span>true positives</span><b>{decisionStats.tp.toLocaleString()}</b></div>
+          <div class="cm cm-fp"><span>false positives</span><b>{decisionStats.fp.toLocaleString()}</b></div>
+          <div class="cm cm-fn"><span>false negatives</span><b>{decisionStats.fn.toLocaleString()}</b></div>
+          <div class="cm cm-tn"><span>true negatives</span><b>{decisionStats.tn.toLocaleString()}</b></div>
+        </div>
+
+        <p class="col" style="grid-column: 1 / -1; margin-top: 12px;">
+          Watch what each model does as you slide the threshold. <strong>Model B</strong>
+          piles almost everything past 0.9 or below 0.1, so the threshold barely moves
+          the count of "yes" decisions until it crosses that wall. <strong>Model C</strong>
+          is the opposite: every threshold inside [0.3, 0.7] reshuffles thousands of
+          tracks. <strong>Model A</strong> sits between them, its scores spread evenly.
+          Same ranking; very different operating curves.
+        </p>
+
+        <GapBars
+          points={part1Reliability}
+          color={part1Color}
+          title="Predicted score vs. actual hit rate, per bin"
+          subtitle="Bars: mean predicted score in the bin. Black rule: actual hit rate. The gap is the model's miss." />
+      </div>
+    {/if}
+
+    <p class="col take" use:revealOnView>
+      <strong>Takeaway.</strong> If you use predicted scores to <em>make decisions</em>
+      — thresholds, risk scoring, expected-value math, resource allocation — ranking
+      quality is not enough. AUC will tell you everything is fine right up until the
+      point your thresholds start lying. Whatever is going on inside the score itself
+      is what the rest of this piece is about.
+    </p>
+  </section>
+
+  <!-- ============================== PART 2 (was Part 1): WHAT IS CALIBRATION ============================== -->
+  <section class="part part-2" id="part-2">
+    <div class="part-intro reveal" use:revealOnView>
+      <p class="part-tag">Part&nbsp;2</p>
+      <h2 class="title-card">What is <span class="accent">calibration</span>?</h2>
+      <p class="part-blurb">
+        Time to lift the curtain on A, B, and C — and to put a name on the property
+        that makes their scores so different.
+      </p>
+    </div>
+
+    <div class="with-sidenote reveal" use:revealOnView>
+      <div class="col">
+        <p>
+          The reason A, B, and C made the same ranking but very different decisions
+          is a property of the score itself, called <em class="term">calibration</em>.
+          From now on we can drop the placeholder names: <strong>Model A</strong> is
+          <em>well-calibrated</em>, <strong>Model B</strong> is <em>over-confident</em>,
+          and <strong>Model C</strong> is <em>under-confident</em>. They share a ranking
+          because B and C are built from A's score by a monotone transform — squashing
+          out toward 0 / 1 (B) or pulling in toward 0.5 (C). The order is preserved;
+          the meaning of the number is not.
         </p>
         <p>
-          Formally, a model <code>f</code> is calibrated when
+          Formally, a classifier <code>f</code> is <em class="term">calibrated</em> when,
+          among all the cases it rates around <code>p</code>, roughly a
+          <code>p</code>-fraction are actually positive. So among songs the model
+          labels with score 0.7, about 70&nbsp;% really are popular hits.
         </p>
         <Tex display tex={'\\Pr\\bigl[\\,Y=1 \\,\\big|\\, f(X)=p\\,\\bigr] \\;=\\; p \\quad \\forall\\, p \\in [0,1].'} />
       </div>
       <aside class="sidenote">
-        Accuracy and ranking quality are different properties — a model can be perfectly
-        accurate yet badly calibrated, and vice-versa.
+        Calibration is a property of the score, not of the prediction. Accuracy and
+        ranking quality are different properties — a model can be perfectly accurate
+        yet badly calibrated, and vice-versa.
       </aside>
     </div>
 
     <p class="col">
-      The two models below make almost the same <em>decisions</em> at threshold 0.5 —
-      they're roughly tied on accuracy. But their <em>scores</em> tell completely
-      different stories. Watch how an over-confident model crowds tracks toward 0&nbsp;and
-      1, while an under-confident one keeps everything bunched around the middle.
+      The two squashed models make almost the same <em>decisions</em> at threshold 0.5
+      as the well-calibrated one — they're roughly tied on accuracy. But their
+      <em>scores</em> tell completely different stories. Watch how an over-confident
+      model crowds tracks toward 0&nbsp;and 1, while an under-confident one keeps
+      everything bunched around the middle.
     </p>
 
     {#if sampleRows.length}
@@ -314,7 +560,6 @@
       </div>
     {/if}
 
-    <!-- Sticky reliability scrolly -->
     <h3 style="margin-top: 100px;">The reliability diagram</h3>
     <p class="col">
       To <em>see</em> calibration, we plot predicted score against the actual fraction
@@ -366,8 +611,8 @@
       <div class="steps">
         <div
           class="step reveal-step" use:revealOnView
-          use:inView={{ onEnter: () => (part1Step = 1), threshold: 0.6 }}>
-          <h3>Well-calibrated</h3>
+          use:inView={{ onEnter: () => (part2Step = 1), threshold: 0.6 }}>
+          <h3>Well-calibrated (Model A)</h3>
           <p>
             The well-trained gradient boosting model hugs the diagonal. When it says
             <code>0.6</code>, about 60&nbsp;% of those tracks really are popular. Its
@@ -377,8 +622,8 @@
         </div>
         <div
           class="step reveal-step" use:revealOnView
-          use:inView={{ onEnter: () => (part1Step = 2), threshold: 0.6 }}>
-          <h3>Over-confident</h3>
+          use:inView={{ onEnter: () => (part2Step = 2), threshold: 0.6 }}>
+          <h3>Over-confident (Model B)</h3>
           <p>
             We squash this model's logits outward, so its scores live near 0 and 1.
             It's still right at threshold 0.5 — but when it says <code>0.95</code>, the
@@ -388,8 +633,8 @@
         </div>
         <div
           class="step reveal-step" use:revealOnView
-          use:inView={{ onEnter: () => (part1Step = 3), threshold: 0.6 }}>
-          <h3>Under-confident</h3>
+          use:inView={{ onEnter: () => (part2Step = 3), threshold: 0.6 }}>
+          <h3>Under-confident (Model C)</h3>
           <p>
             The opposite move pulls scores toward <code>0.5</code>. The model never
             commits. When it whispers <code>0.55</code>, the actual hit rate is more
@@ -398,7 +643,7 @@
         </div>
         <div
           class="step reveal-step" use:revealOnView
-          use:inView={{ onEnter: () => (part1Step = 4), threshold: 0.6 }}>
+          use:inView={{ onEnter: () => (part2Step = 4), threshold: 0.6 }}>
           <h3>Two metrics, two emphases</h3>
           <p>
             <em class="term">Expected Calibration Error</em> (ECE) bins the predictions
@@ -423,15 +668,15 @@
         {#if reliability}
           <ReliabilityDiagram
             series={seriesAll}
-            activeId={part1Active}
-            annotations={part1Step >= 4 && metrics?.models
+            activeId={part2Active}
+            annotations={part2Step >= 4 && metrics?.models
               ? {
                   well_calibrated: metrics.models.well_calibrated.ece,
                   over_confident: metrics.models.over_confident.ece,
                   under_confident: metrics.models.under_confident.ece
                 }
               : null}
-            title="Reliability diagram — three flavours"
+            title="Reliability diagram — three flavors"
             subtitle="x: mean predicted score per bin · y: actual fraction of hits · circles sized by bin count" />
         {/if}
       </div>
@@ -439,7 +684,7 @@
 
     <h3>Why does the gap appear at all?</h3>
     <p class="col">
-      Most learners optimise <em>discriminative</em> losses — cross-entropy, hinge,
+      Most learners optimize <em>discriminative</em> losses — cross-entropy, hinge,
       log-loss — that reward putting the right class on the right side of the boundary.
       Calibration isn't part of the objective, so it isn't guaranteed to fall out of
       training. A few common ways the gap creeps in:
@@ -451,7 +696,7 @@
         sigmoids saturate. Result: <em>over-confidence</em>.
       </li>
       <li>
-        <strong>Strong regularisation, early stopping, or shrinkage</strong> hold the
+        <strong>Strong regularization, early stopping, or shrinkage</strong> hold the
         outputs back from the extremes. Logits stay close to zero, scores cluster
         around 0.5. Result: <em>under-confidence</em>.
       </li>
@@ -466,7 +711,7 @@
       </li>
     </ul>
     <p class="col">
-      None of these are bugs. They're side-effects of optimising a different objective
+      None of these are bugs. They're side-effects of optimizing a different objective
       than "honest probabilities". The gap is the price you pay; calibration is how you
       pay it back.
     </p>
@@ -478,120 +723,8 @@
     </p>
   </section>
 
-  <!-- ============================== PART 2 ============================== -->
-  <section class="part part-2">
-    <div class="part-intro reveal" use:revealOnView>
-      <p class="part-tag">Part&nbsp;2</p>
-      <h2 class="title-card">Why it <span class="accent">matters</span></h2>
-      <p class="part-blurb">
-        Ranking is forgiving. Decisions aren't — and the moment a score crosses
-        a threshold, miscalibration turns into wrong answers.
-      </p>
-    </div>
-
-    <div class="with-sidenote reveal" use:revealOnView>
-      <div class="col">
-        <p>
-          Ranking is forgiving: it only cares about order, and our three models all
-          rank the same. <em>Decisions</em> aren't. The moment you compare a score to a
-          threshold — to send a song to a "promote" queue, to alert a doctor, to flag
-          a transaction — you're treating that score as if it meant something.
-          Miscalibration silently changes what your threshold buys you.
-        </p>
-      </div>
-      <aside class="sidenote">
-        Threshold 0.5 is convention, not law. The right cutoff depends on the cost
-        ratio between false positives and false negatives — and on whether the score
-        you're cutting against is a probability in the first place.
-      </aside>
-    </div>
-
-    <div class="pill-row col">
-      {#each [
-        { id: 'well_calibrated', label: 'Well-calibrated' },
-        { id: 'over_confident', label: 'Over-confident' },
-        { id: 'under_confident', label: 'Under-confident' }
-      ] as opt}
-        <button
-          class="pill"
-          class:active={modelChoice === opt.id}
-          onclick={() => (modelChoice = opt.id)}>
-          {opt.label}
-        </button>
-      {/each}
-    </div>
-
-    <p class="col">
-      Drag the <em>threshold</em> below — or click anywhere on the histogram — to see
-      what changes when you decide a different point is "promote-worthy".
-    </p>
-
-    {#if part2Model && decisionStats}
-      <div class="figure-grid col-wide">
-        <ScoreHistogram
-          bins={part2Model.histogram}
-          {threshold}
-          color={part2Color}
-          onThreshold={(t) => (threshold = t)}
-          title="Score distribution — {modelChoice.replace('_', ' ')}"
-          subtitle="Click or drag to pick a threshold" />
-
-        <div class="stats">
-          <div class="stat">
-            <div class="label">Threshold</div>
-            <div class="value">{threshold.toFixed(2)}</div>
-          </div>
-          <div class="stat">
-            <div class="label">Precision</div>
-            <div class="value">{(decisionStats.precision * 100).toFixed(1)}%</div>
-            <div class="delta">tp / (tp + fp)</div>
-          </div>
-          <div class="stat">
-            <div class="label">Recall</div>
-            <div class="value">{(decisionStats.recall * 100).toFixed(1)}%</div>
-            <div class="delta">tp / (tp + fn)</div>
-          </div>
-          <div class="stat">
-            <div class="label">Accuracy</div>
-            <div class="value">{(decisionStats.accuracy * 100).toFixed(1)}%</div>
-            <div class="delta">over {decisionStats.n.toLocaleString()} tracks</div>
-          </div>
-        </div>
-
-        <div class="confusion">
-          <div class="cm cm-tp"><span>true positives</span><b>{decisionStats.tp.toLocaleString()}</b></div>
-          <div class="cm cm-fp"><span>false positives</span><b>{decisionStats.fp.toLocaleString()}</b></div>
-          <div class="cm cm-fn"><span>false negatives</span><b>{decisionStats.fn.toLocaleString()}</b></div>
-          <div class="cm cm-tn"><span>true negatives</span><b>{decisionStats.tn.toLocaleString()}</b></div>
-        </div>
-
-        <p class="col" style="grid-column: 1 / -1; margin-top: 12px;">
-          The over-confident model puts almost everything past 0.9 or below 0.1, so
-          your threshold barely moves the count of "yes" decisions until you cross
-          that wall. The under-confident model is the opposite: every threshold inside
-          [0.3, 0.7] reshuffles thousands of tracks. <strong>Same ranking, very
-          different operating curves.</strong>
-        </p>
-
-        <GapBars
-          points={part2Reliability}
-          color={part2Color}
-          title="Predicted score vs. actual hit rate, per bin"
-          subtitle="Bars: mean predicted score in the bin. Black rule: actual hit rate. The gap is calibration error." />
-      </div>
-    {/if}
-
-    <p class="col take" use:revealOnView>
-      <strong>Takeaway.</strong> If you use predicted scores to <em>make decisions</em>
-      — thresholds, risk scoring, expected-value math, resource allocation — calibration
-      is what determines whether those decisions are actually correct. Ranking-only
-      metrics like AUC will tell you everything is fine right up until the point your
-      thresholds start lying.
-    </p>
-  </section>
-
   <!-- ============================== PART 3 ============================== -->
-  <section class="part part-3">
+  <section class="part part-3" id="part-3">
     <div class="part-intro reveal" use:revealOnView>
       <p class="part-tag">Part&nbsp;3</p>
       <h2 class="title-card">How to <span class="accent">calibrate</span></h2>
@@ -652,7 +785,7 @@
         <div class="step reveal-step" use:revealOnView use:inView={{ onEnter: () => (plattStep = 3), threshold: 0.6 }}>
           <h3>Step 3 — The MLE fit</h3>
           <p>
-            Solve for <code>(a, b)</code> that maximise the log-likelihood of the
+            Solve for <code>(a, b)</code> that maximize the log-likelihood of the
             calibration labels. Result:
             <code>a&nbsp;=&nbsp;{plattAByStep.toFixed(2)}</code>,
             <code>b&nbsp;=&nbsp;{plattBByStep.toFixed(2)}</code>.
@@ -660,8 +793,8 @@
           </p>
           <p style="color: var(--ink-soft); font-size: 15px; margin-top: 12px;">
             "Fitted" doesn't mean the curve traces the diagonal exactly — it means
-            <em>those parameters maximise likelihood under the sigmoid family.</em>
-            Any residual bend is an artefact of the family being too restrictive.
+            <em>those parameters maximize likelihood under the sigmoid family.</em>
+            Any residual bend is an artifact of the family being too restrictive.
             That's exactly the gap isotonic closes next.
           </p>
         </div>
@@ -737,7 +870,7 @@
 
     <h3>C. Brier score, before and after</h3>
     <p class="col">
-      We met Brier score back in Part&nbsp;1 — a proper scoring rule that punishes
+      We met Brier score back in Part&nbsp;2 — a proper scoring rule that punishes
       probabilistic distance from the truth, not just the threshold-side. Calibration
       should drop it, and below it does.
     </p>
@@ -822,8 +955,8 @@
             wanted &gt;1k binary samples, now wants &gt;1k <em>per class</em>.
           </li>
           <li>
-            <strong>Normalisation drift.</strong> Calibrate each class independently and
-            the K outputs no longer sum to 1. Either renormalise (and lose the
+            <strong>Normalization drift.</strong> Calibrate each class independently and
+            the K outputs no longer sum to 1. Either renormalize (and lose the
             per-class fit) or use a method that respects the simplex.
           </li>
           <li>
@@ -836,7 +969,7 @@
         <ul class="reasons">
           <li>
             <strong>One-vs-rest Platt or isotonic.</strong> Fit K binary calibrators,
-            then renormalise. Cheap, often good enough, no joint guarantees.
+            then renormalize. Cheap, often good enough, no joint guarantees.
           </li>
           <li>
             <strong>Temperature scaling.</strong> One scalar <code>T</code> divides the
@@ -852,7 +985,7 @@
           </li>
           <li>
             <strong>Dirichlet calibration.</strong> A multinomial-logistic regression on
-            the log-probability vector — preserves the simplex, generalises Platt to K
+            the log-probability vector — preserves the simplex, generalizes Platt to K
             classes
             (<a href="https://arxiv.org/abs/1910.12656" target="_blank" rel="noreferrer">Kull et&nbsp;al., 2019</a>).
           </li>
@@ -868,12 +1001,13 @@
     <p class="col take" use:revealOnView>
       <strong>Takeaway.</strong> Calibration is cheap. Platt is two parameters and
       always tame. Isotonic is more flexible and almost always wins given enough data,
-      at the cost of step-function artefacts. Both leave your model's decisions
+      at the cost of step-function artifacts. Both leave your model's decisions
       unchanged — they just stop the scores from lying.
     </p>
   </section>
 
-  <section class="part">
+  <!-- ============================== OUTRO ============================== -->
+  <section class="part" id="outro">
     <div class="part-intro reveal" use:revealOnView>
       <p class="part-tag">Outro</p>
       <h2 class="title-card">Where this <span class="accent">leaves you</span></h2>
@@ -903,15 +1037,7 @@
     </p>
     <p class="col reveal" use:revealOnView>
       So: if your output is a number that pretends to be a probability, calibrate it,
-      or at least audit it. If it isn't, don't bother. We're not here to tell anyone
-      what to do — only to point out one of the cheaper ways to make a model say what
-      it means. If anything in here landed wrong, or you've found a sharper way to
-      explain it, please write us back.
-    </p>
-    <p class="col reveal" use:revealOnView>
-      Threshold-picking — choosing where to cut for the precision/recall trade-off you
-      actually want — is a related-but-separate art, and one we'll come back to in a
-      later piece.
+      or at least audit it. If it isn't, don't bother. Feedback is always welcome.
     </p>
     <section class="refs col reveal" use:revealOnView aria-labelledby="refs-heading">
       <h3 id="refs-heading">Further reading</h3>
@@ -1111,8 +1237,7 @@
     color: var(--ink-soft);
     margin: 0;
   }
-  /* Used by Part 2 to align the histogram with the body column and let the
-     stats/confusion panels share the sidenote gutter. */
+  /* Part 1 figure grid: histogram on left, ROC chart in the sidenote slot. */
   .figure-grid {
     display: grid;
     grid-template-columns: minmax(0, var(--col-text)) var(--col-side);
@@ -1124,6 +1249,30 @@
     .figure-grid {
       grid-template-columns: 1fr;
     }
+  }
+  .roc-wrap {
+    align-self: start;
+  }
+  .roc-caption {
+    font-family: var(--sans);
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--ink-soft);
+    margin: 8px 0 0;
+  }
+  .stat-row {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(140px, 220px));
+    gap: 18px;
+    margin: 8px 0 20px;
+    font-family: var(--sans);
+  }
+  .stat-row .stat {
+    background: var(--bg-alt);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 12px 16px;
   }
   .confusion {
     grid-column: 1 / -1;
@@ -1208,5 +1357,69 @@
   }
   .credits {
     margin-top: 32px;
+  }
+
+  /* ---------- Timeline / table-of-contents nav ---------- */
+  .toc {
+    position: fixed;
+    left: 22px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 30;
+    font-family: var(--sans);
+    pointer-events: auto;
+  }
+  .toc ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .toc li {
+    margin: 0;
+  }
+  .toc a {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 6px 10px 6px 12px;
+    border-left: 1px solid var(--rule);
+    color: var(--ink-soft);
+    font-size: 11px;
+    letter-spacing: 0.02em;
+    background: none;
+    text-decoration: none;
+    transition: color 0.2s, border-color 0.2s, opacity 0.2s;
+    opacity: 0.55;
+  }
+  .toc a:hover {
+    color: var(--ink);
+    border-left-color: var(--green-dim);
+    background: none;
+    opacity: 1;
+  }
+  .toc a .num {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-soft);
+    letter-spacing: 0.04em;
+  }
+  .toc a .lab {
+    font-size: 11px;
+  }
+  .toc li.active a {
+    color: var(--ink);
+    border-left-color: var(--green);
+    opacity: 1;
+  }
+  .toc li.active a .num {
+    color: var(--green-soft);
+  }
+  @media (max-width: 1280px) {
+    .toc {
+      display: none;
+    }
   }
 </style>

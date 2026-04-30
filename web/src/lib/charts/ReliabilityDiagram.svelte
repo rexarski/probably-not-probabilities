@@ -220,7 +220,7 @@
   }
   /* Draw-on animation for the focused series so cycling between methods
      feels like the line is being redrawn. The path's pathLength="1"
-     attribute normalises the dasharray independent of true length. */
+     attribute normalizes the dasharray independent of true length. */
   .series-path.draw {
     stroke-dasharray: 1;
     stroke-dashoffset: 1;

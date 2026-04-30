@@ -1,6 +1,6 @@
 // Spotify-inspired palette. Body text reads on near-black; green for accents,
 // underlines, and data marks. We use a small auxiliary palette for the
-// over/under-confident comparisons so colour itself becomes a quick legend.
+// over/under-confident comparisons so color itself becomes a quick legend.
 
 export const palette = {
   bg: '#0d0d0d',
@@ -12,7 +12,7 @@ export const palette = {
   green: '#1db954',
   greenSoft: '#1ed760',
   greenDim: '#147a37',
-  // Comparison hues — reachable from a colourblind-friendly set on dark bg
+  // Comparison hues — reachable from a colorblind-friendly set on dark bg
   wellCalibrated: '#1db954',
   overConfident: '#ff7a59',
   underConfident: '#7ab7ff',
