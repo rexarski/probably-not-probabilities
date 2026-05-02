@@ -218,10 +218,16 @@ hr {
 }
 .scrolly .step {
   font-size: 17px;
+  transition: opacity 0.45s;
 }
 .scrolly .step h3 {
   margin-top: 0;
   font-size: 22px;
+}
+/* Once a step has revealed, dim it again whenever another step owns the
+   sticky chart. Keeps the active prose visually paired with the chart. */
+.scrolly .step.reveal-step.is-visible:not(.active) {
+  opacity: 0.42;
 }
 .scrolly .sticky {
   position: sticky;
@@ -252,6 +258,29 @@ hr {
     min-height: 0;
   }
 }
+
+/* ---------- Inline model tag ----------
+   `<strong class="mt mt-a">Model A</strong>` renders the bold name plus a
+   small color-coded dot, so prose mentions of A/B/C carry the same hue as
+   the chart marks without forcing the reader to remember the mapping. */
+.mt {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+}
+.mt::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--mt-c, currentColor);
+  transform: translateY(-1px);
+  flex: none;
+  align-self: center;
+}
+.mt-a { --mt-c: #1db954; }
+.mt-b { --mt-c: #ff7a59; }
+.mt-c { --mt-c: #7ab7ff; }
 
 /* ---------- Reveal helpers ---------- */
 .reveal {
@@ -310,6 +339,46 @@ hr {
   max-width: var(--col-text, 640px);
   margin: 0;
 }
+
+/* Scroll-driven enhancement: where the browser supports view() timelines,
+   the part-intro children scrub in as the card crosses the viewport, with
+   a slight stagger between tag, title, and blurb. The JS revealOnView
+   toggle still runs everywhere; we just override the static end-state so
+   keyframes own the motion on capable browsers. */
+@supports (animation-timeline: view()) {
+  .part-intro.reveal {
+    opacity: 1;
+    transform: none;
+  }
+  .part-intro .part-tag,
+  .part-intro .title-card,
+  .part-intro .part-blurb {
+    animation-name: part-intro-rise;
+    animation-timeline: view();
+    animation-fill-mode: both;
+  }
+  .part-intro .part-tag {
+    animation-range: entry 0% cover 18%;
+  }
+  .part-intro .title-card {
+    animation-range: entry 6% cover 30%;
+  }
+  .part-intro .part-blurb {
+    animation-range: entry 14% cover 42%;
+  }
+  @keyframes part-intro-rise {
+    from { opacity: 0; transform: translateY(44px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .part-intro .part-tag,
+    .part-intro .title-card,
+    .part-intro .part-blurb {
+      animation: none;
+    }
+  }
+}
+
 /* ---------- Stat callouts ---------- */
 .stats {
   display: grid;

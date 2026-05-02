@@ -31,6 +31,21 @@
   let y = $derived(d3.scaleLinear().domain([0, maxCount]).nice().range([innerH, 0]));
 
   let svgEl = $state(null);
+  let figEl = $state(null);
+  let tt = $state(null);
+
+  function showTip(event, b) {
+    if (!figEl) return;
+    const rect = figEl.getBoundingClientRect();
+    tt = {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+      flip: event.clientX - rect.left > rect.width * 0.6,
+      bin: `${b.x0.toFixed(2)}–${b.x1.toFixed(2)}`,
+      count: b.count
+    };
+  }
+  function hideTip() { tt = null; }
 
   function handlePointer(event) {
     if (!onThreshold || !svgEl) return;
@@ -42,7 +57,7 @@
   const xTicks = [0, 0.25, 0.5, 0.75, 1];
 </script>
 
-<figure class="hist">
+<figure class="hist" bind:this={figEl}>
   <svg
     bind:this={svgEl}
     viewBox="0 0 {width} {height}"
@@ -59,12 +74,16 @@
       {#each bins as b}
         {@const isAbove = (b.x0 + b.x1) / 2 >= threshold}
         <rect
+          class="bar"
           x={x(b.x0) + 1}
           y={y(b.count)}
           width={Math.max(0, x(b.x1) - x(b.x0) - 2)}
           height={innerH - y(b.count)}
           fill={color}
-          fill-opacity={isAbove ? 0.85 : 0.32} />
+          fill-opacity={isAbove ? 0.85 : 0.32}
+          onpointerenter={(e) => showTip(e, b)}
+          onpointermove={(e) => showTip(e, b)}
+          onpointerleave={hideTip} />
       {/each}
 
       <!-- threshold rule -->
@@ -107,12 +126,58 @@
       </text>
     </g>
   </svg>
+
+  {#if tt}
+    <div
+      class="tt"
+      class:flip={tt.flip}
+      style:left="{tt.x}px"
+      style:top="{tt.y}px">
+      <div class="tt-row"><span>Score</span><span>{tt.bin}</span></div>
+      <div class="tt-row"><span>Count</span><span>{tt.count}</span></div>
+    </div>
+  {/if}
 </figure>
 
 <style>
   .hist {
     margin: 0;
     width: 100%;
+    position: relative;
+  }
+  .bar {
+    transition: fill-opacity 0.2s;
+  }
+  .bar:hover {
+    fill-opacity: 1 !important;
+  }
+  .tt {
+    position: absolute;
+    pointer-events: none;
+    transform: translate(14px, -50%);
+    background: var(--bg-alt, #161616);
+    border: 1px solid var(--rule, #2a2a2a);
+    padding: 8px 10px;
+    min-width: 132px;
+    border-radius: 3px;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
+    z-index: 6;
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--ink, #e8e8e3);
+  }
+  .tt.flip {
+    transform: translate(calc(-100% - 14px), -50%);
+  }
+  .tt-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    color: var(--ink-soft, #a7a7a2);
+  }
+  .tt-row span:last-child {
+    color: var(--ink, #e8e8e3);
   }
   svg {
     width: 100%;

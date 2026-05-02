@@ -51,9 +51,30 @@
   let maxCount = $derived(
     Math.max(1, ...series.flatMap((s) => s.points.map((p) => p.count)))
   );
+
+  let figEl = $state(null);
+  let tt = $state(null);
+
+  function showTip(event, label, color, p) {
+    if (!figEl) return;
+    const rect = figEl.getBoundingClientRect();
+    tt = {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+      flip: event.clientX - rect.left > rect.width * 0.6,
+      label,
+      color,
+      bin: `${p.bin_lo.toFixed(2)}–${p.bin_hi.toFixed(2)}`,
+      pred: p.mean_pred.toFixed(3),
+      actual: p.frac_pos.toFixed(3),
+      gap: Math.abs(p.mean_pred - p.frac_pos).toFixed(3),
+      count: p.count
+    };
+  }
+  function hideTip() { tt = null; }
 </script>
 
-<figure class="rd">
+<figure class="rd" bind:this={figEl}>
   <svg viewBox="0 0 {width} {height}" role="img" aria-label={title}>
     <text class="title" x={margin.left} y="24">{title}</text>
     <text class="subtitle" x={margin.left} y="44">{subtitle}</text>
@@ -114,7 +135,10 @@
               fill={color}
               fill-opacity={isActive ? 0.85 : 0.4}
               stroke={palette.bg}
-              stroke-width="1" />
+              stroke-width="1"
+              onpointerenter={(e) => showTip(e, s.label, color, p)}
+              onpointermove={(e) => showTip(e, s.label, color, p)}
+              onpointerleave={hideTip} />
           {/each}
         </g>
       {/each}
@@ -176,12 +200,75 @@
       </li>
     </ul>
   {/if}
+
+  {#if tt}
+    <div
+      class="tt"
+      class:flip={tt.flip}
+      style:left="{tt.x}px"
+      style:top="{tt.y}px">
+      <div class="tt-h"><span class="dot" style:background={tt.color}></span>{tt.label}</div>
+      <div class="tt-row"><span>Bin</span><span>{tt.bin}</span></div>
+      <div class="tt-row"><span>Predicted</span><span>{tt.pred}</span></div>
+      <div class="tt-row"><span>Actual</span><span>{tt.actual}</span></div>
+      <div class="tt-row"><span>Gap</span><span>{tt.gap}</span></div>
+      <div class="tt-row"><span>n</span><span>{tt.count}</span></div>
+    </div>
+  {/if}
 </figure>
 
 <style>
   .rd {
     margin: 0;
     width: 100%;
+    position: relative;
+  }
+  .series-pt {
+    cursor: crosshair;
+  }
+  .tt {
+    position: absolute;
+    pointer-events: none;
+    transform: translate(14px, -50%);
+    background: var(--bg-alt, #161616);
+    border: 1px solid var(--rule, #2a2a2a);
+    padding: 8px 10px;
+    min-width: 168px;
+    border-radius: 3px;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
+    z-index: 6;
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--ink, #e8e8e3);
+  }
+  .tt.flip {
+    transform: translate(calc(-100% - 14px), -50%);
+  }
+  .tt-h {
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink, #e8e8e3);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+  .tt-h .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .tt-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    color: var(--ink-soft, #a7a7a2);
+  }
+  .tt-row span:last-child {
+    color: var(--ink, #e8e8e3);
   }
   svg {
     width: 100%;

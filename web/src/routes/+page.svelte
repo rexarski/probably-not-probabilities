@@ -18,6 +18,9 @@
   import IsotonicSteps from '$lib/charts/IsotonicSteps.svelte';
   import SampleRows from '$lib/charts/SampleRows.svelte';
   import RocCurves from '$lib/charts/RocCurves.svelte';
+  import CountUp from '$lib/CountUp.svelte';
+  import StepDots from '$lib/StepDots.svelte';
+  import IdentityReveal from '$lib/IdentityReveal.svelte';
   import Tex from '$lib/Math.svelte';
 
   /** @type {any} */ let holdout = $state(null);
@@ -458,29 +461,37 @@
           </div>
           <div class="stat">
             <div class="label">Precision</div>
-            <div class="value">{(decisionStats.precision * 100).toFixed(1)}%</div>
+            <div class="value">
+              <CountUp
+                value={decisionStats.precision * 100}
+                format={(v) => `${v.toFixed(1)}%`} />
+            </div>
             <div class="delta">tp / (tp + fp)</div>
           </div>
           <div class="stat">
             <div class="label">Recall</div>
-            <div class="value">{(decisionStats.recall * 100).toFixed(1)}%</div>
+            <div class="value">
+              <CountUp
+                value={decisionStats.recall * 100}
+                format={(v) => `${v.toFixed(1)}%`} />
+            </div>
             <div class="delta">tp / (tp + fn)</div>
           </div>
         </div>
 
         <div class="confusion">
-          <div class="cm cm-tp"><span>true positives</span><b>{decisionStats.tp.toLocaleString()}</b></div>
-          <div class="cm cm-fp"><span>false positives</span><b>{decisionStats.fp.toLocaleString()}</b></div>
-          <div class="cm cm-fn"><span>false negatives</span><b>{decisionStats.fn.toLocaleString()}</b></div>
-          <div class="cm cm-tn"><span>true negatives</span><b>{decisionStats.tn.toLocaleString()}</b></div>
+          <div class="cm cm-tp"><span>true positives</span><b><CountUp value={decisionStats.tp} format={(v) => Math.round(v).toLocaleString()} /></b></div>
+          <div class="cm cm-fp"><span>false positives</span><b><CountUp value={decisionStats.fp} format={(v) => Math.round(v).toLocaleString()} /></b></div>
+          <div class="cm cm-fn"><span>false negatives</span><b><CountUp value={decisionStats.fn} format={(v) => Math.round(v).toLocaleString()} /></b></div>
+          <div class="cm cm-tn"><span>true negatives</span><b><CountUp value={decisionStats.tn} format={(v) => Math.round(v).toLocaleString()} /></b></div>
         </div>
 
         <p class="col" style="grid-column: 1 / -1; margin-top: 12px;">
-          Watch what each model does as you slide the threshold. <strong>Model B</strong>
+          Watch what each model does as you slide the threshold. <strong class="mt mt-b">Model B</strong>
           piles almost everything past 0.9 or below 0.1, so the threshold barely moves
-          the count of "yes" decisions until it crosses that wall. <strong>Model C</strong>
+          the count of "yes" decisions until it crosses that wall. <strong class="mt mt-c">Model C</strong>
           is the opposite: every threshold inside [0.3, 0.7] reshuffles thousands of
-          tracks. <strong>Model A</strong> sits between them, its scores spread evenly.
+          tracks. <strong class="mt mt-a">Model A</strong> sits between them, its scores spread evenly.
           Same ranking; very different operating curves.
         </p>
 
@@ -512,14 +523,18 @@
       </p>
     </div>
 
+    <div class="col">
+      <IdentityReveal />
+    </div>
+
     <div class="with-sidenote reveal" use:revealOnView>
       <div class="col">
         <p>
           The reason A, B, and C made the same ranking but very different decisions
           is a property of the score itself, called <em class="term">calibration</em>.
-          From now on we can drop the placeholder names: <strong>Model A</strong> is
-          <em>well-calibrated</em>, <strong>Model B</strong> is <em>over-confident</em>,
-          and <strong>Model C</strong> is <em>under-confident</em>. They share a ranking
+          From now on we can drop the placeholder names: <strong class="mt mt-a">Model A</strong> is
+          <em>well-calibrated</em>, <strong class="mt mt-b">Model B</strong> is <em>over-confident</em>,
+          and <strong class="mt mt-c">Model C</strong> is <em>under-confident</em>. They share a ranking
           because B and C are built from A's score by a monotone transform — squashing
           out toward 0 / 1 (B) or pulling in toward 0.5 (C). The order is preserved;
           the meaning of the number is not.
@@ -765,7 +780,7 @@
 
     <div class="scrolly">
       <div class="steps">
-        <div class="step reveal-step" use:revealOnView use:inView={{ onEnter: () => (plattStep = 1), threshold: 0.6 }}>
+        <div class="step reveal-step" class:active={plattStep === 1} use:revealOnView use:inView={{ onEnter: () => (plattStep = 1), threshold: 0.6 }}>
           <h3>Step 1 — A flat sigmoid</h3>
           <p>
             Start with <code>a&nbsp;=&nbsp;1, b&nbsp;=&nbsp;0</code>. The map is
@@ -773,7 +788,7 @@
             scores. Useless as a calibrator, but a clear baseline.
           </p>
         </div>
-        <div class="step reveal-step" use:revealOnView use:inView={{ onEnter: () => (plattStep = 2), threshold: 0.6 }}>
+        <div class="step reveal-step" class:active={plattStep === 2} use:revealOnView use:inView={{ onEnter: () => (plattStep = 2), threshold: 0.6 }}>
           <h3>Step 2 — Crank the steepness</h3>
           <p>
             Push <code>a</code> up to 5, leave <code>b</code> at 0. Now the curve has
@@ -782,7 +797,7 @@
             its job.
           </p>
         </div>
-        <div class="step reveal-step" use:revealOnView use:inView={{ onEnter: () => (plattStep = 3), threshold: 0.6 }}>
+        <div class="step reveal-step" class:active={plattStep === 3} use:revealOnView use:inView={{ onEnter: () => (plattStep = 3), threshold: 0.6 }}>
           <h3>Step 3 — The MLE fit</h3>
           <p>
             Solve for <code>(a, b)</code> that maximize the log-likelihood of the
@@ -800,6 +815,9 @@
         </div>
       </div>
       <div class="sticky">
+        <StepDots
+          active={plattStep}
+          labels={['flat sigmoid', 'steepness', 'MLE fit']} />
         <PlattCurve a={plattAByStep} b={plattBByStep} />
       </div>
     </div>
@@ -827,7 +845,7 @@
     {#if calibrated?.isotonic?.steps}
       <div class="scrolly">
         <div class="steps">
-          <div class="step reveal-step" use:revealOnView use:inView={{ onEnter: () => (isoStep = 1), threshold: 0.6 }}>
+          <div class="step reveal-step" class:active={isoStep === 1} use:revealOnView use:inView={{ onEnter: () => (isoStep = 1), threshold: 0.6 }}>
             <h3>Step 1 — A coarse staircase</h3>
             <p>
               Just five knots. The PAVA solution is forced into a few wide plateaus —
@@ -835,7 +853,7 @@
               show what "monotone step function" means.
             </p>
           </div>
-          <div class="step reveal-step" use:revealOnView use:inView={{ onEnter: () => (isoStep = 2), threshold: 0.6 }}>
+          <div class="step reveal-step" class:active={isoStep === 2} use:revealOnView use:inView={{ onEnter: () => (isoStep = 2), threshold: 0.6 }}>
             <h3>Step 2 — More resolution</h3>
             <p>
               Sixteen knots. The staircase starts to bend with the data, hugging the
@@ -843,7 +861,7 @@
               algorithm can spend.
             </p>
           </div>
-          <div class="step reveal-step" use:revealOnView use:inView={{ onEnter: () => (isoStep = 3), threshold: 0.6 }}>
+          <div class="step reveal-step" class:active={isoStep === 3} use:revealOnView use:inView={{ onEnter: () => (isoStep = 3), threshold: 0.6 }}>
             <h3>Step 3 — The full PAVA fit</h3>
             <p>
               Every unique calibration sample becomes a candidate knot, and PAVA
@@ -860,6 +878,9 @@
           </div>
         </div>
         <div class="sticky">
+          <StepDots
+            active={isoStep}
+            labels={['5 knots', '16 knots', 'all knots']} />
           <IsotonicSteps
             steps={calibrated.isotonic.steps}
             probe={isoProbeByStep}

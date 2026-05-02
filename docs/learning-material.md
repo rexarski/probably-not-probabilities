@@ -17,6 +17,7 @@ If you're impatient: the **TL;DR** is at the bottom.
 | Static export | `@sveltejs/adapter-static` | Produces a folder of HTML/JS/CSS — perfect for GitHub Pages. |
 | Charts | **d3** (selection + scales + shape) | We're drawing custom things (sticky reliability diagram, threshold-slider histogram, isotonic step function). d3 gives us scales, axes, and shapes without dragging a chart library's opinions into the article. |
 | Scrollytelling | **IntersectionObserver** in a tiny Svelte action (`scrollytelling.js`) | No `scrollama`, no dependency. ~30 lines of code; advances `step` state when an element enters the viewport. |
+| Scroll-driven CSS | `animation-timeline: scroll()` / `view()` (progressive enhancement) | Used for the top progress bar and the per-Part title-card reveals. Pure CSS, gated on `@supports`, so unsupported browsers fall back to the IntersectionObserver path. |
 | Typography | Inter / Fraunces / JetBrains Mono via Google Fonts | Inter for UI, Fraunces for the editorial body, mono for code/values. |
 | Color | Spotify-noir palette (`#0d0d0d` bg, `#1db954` green) | Matches the data source aesthetically; high contrast for charts. |
 
@@ -47,6 +48,10 @@ probably-not-probabilities/
 │   │   │   ├── data.js                 # fetch helpers
 │   │   │   ├── theme.js                # palette tokens used by charts
 │   │   │   ├── scrollytelling.js       # `inView` / `revealOnView` actions
+│   │   │   ├── Math.svelte             # KaTeX wrapper (imported as `Tex`)
+│   │   │   ├── CountUp.svelte          # animates a number from 0→target on view enter
+│   │   │   ├── StepDots.svelte         # progress chip-strip for sticky scrollys
+│   │   │   ├── IdentityReveal.svelte   # the A/B/C → label pill morph in Part 2
 │   │   │   └── charts/                 # one Svelte component per chart
 │   │   └── styles/global.css
 │   └── static/
@@ -158,7 +163,62 @@ bun run preview             # serves the static `build/` folder
 
 ---
 
-## 5. Concepts to take away
+## 5. Interactive polish
+
+The article gets most of its feel from a handful of small, composable patterns. Each is independently optional — pull any one out and the piece still reads — but together they're what separates "a chart with a caption" from a Pudding-style explainer.
+
+### 5.1 Hover/tap tooltips on data marks
+
+The reliability dots, histogram bars, and gap bars (`ReliabilityDiagram.svelte`, `ScoreHistogram.svelte`, `GapBars.svelte`) attach `pointerenter` / `pointermove` / `pointerleave` directly to each mark. The handler computes pointer position relative to the figure's bounding rect and stores `{x, y, ...content}` in component state; an absolutely-positioned HTML `<div>` renders the popover. Tooltips auto-flip when the pointer is past 60% of the figure width so they never overflow the right edge. Information density jumps without taxing the static layout.
+
+### 5.2 Count-up on entry — `CountUp.svelte`
+
+Headline numbers (precision, recall, the four confusion-matrix counts) tween from 0 to value over ~700ms when the stat block first crosses the viewport. The component is ~50 lines:
+
+- `IntersectionObserver` with `threshold: 0.4` flips a `played` flag once.
+- `requestAnimationFrame` loop with cubic-out easing.
+- After `played`, an `$effect` keeps `display = value`, so live values (e.g., the threshold-driven precision/recall) update normally without re-tweening.
+- Honours `prefers-reduced-motion` by short-circuiting to the final value on mount.
+
+It accepts a `format` function (`(v) => '${v.toFixed(1)}%'`) so the same component handles percentages, integers, and decimals without branching internally.
+
+### 5.3 Sticky scrolly indicators — `StepDots.svelte`
+
+The Platt and isotonic scrollys each have three steps with a shared sticky chart. Without an indicator the reader can lose their place; with one, the chart and prose stay visibly paired. `StepDots` renders a horizontal chip strip (`flat sigmoid · steepness · MLE fit`), where the active chip glows green and past chips show a dim-green completed state. CSS-only animation. Pairs with a one-line global rule (`.scrolly .step.is-visible:not(.active) { opacity: 0.42 }`) that dims non-active step prose so the active step alone owns the chart change.
+
+### 5.4 Scroll-driven CSS (progressive enhancement)
+
+Two places use `animation-timeline` directly, gated on `@supports (animation-timeline: ...)`:
+
+- **Top progress bar** (`+layout.svelte`): a fixed 2px green strip with `transform-origin: 0 50%` and `animation-timeline: scroll(root block)` keyframing `transform: scaleX(0) → scaleX(1)`. Pure CSS.
+- **Per-Part title card reveal** (`global.css`): the tag/title/blurb inside `.part-intro` each get an `animation-name: part-intro-rise` with staggered `animation-range` (`entry 0% cover 18%` → `... 30%` → `... 42%`), tied to `animation-timeline: view()`. Reader scrubs the reveal as the card crosses the viewport.
+
+In both cases, browsers without support fall through to the JS `revealOnView` / static-display path. `@media (prefers-reduced-motion: reduce)` short-circuits both.
+
+### 5.5 The A/B/C reveal — `IdentityReveal.svelte`
+
+The article's biggest moment is the curtain-lift in Part 2: the placeholder names A, B, C give way to *well-calibrated*, *over-confident*, *under-confident*. Three colored pills sit before the bridge paragraph; on `IntersectionObserver` enter, each pill expands (`max-width: 0 → 200px`) with a 160ms stagger, the label fades in, and a soft color glow blooms behind the pill via `box-shadow`. A textual reveal made visual, in ~80 lines.
+
+### 5.6 Inline model tagging — `.mt`/`.mt-a/b/c`
+
+Body prose mentions of *Model A/B/C* carry a 7px colored dot prefix matching the chart hue. CSS-only:
+
+```css
+.mt::before {
+  content: '';
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--mt-c, currentColor);
+}
+.mt-a { --mt-c: #1db954; }
+.mt-b { --mt-c: #ff7a59; }
+.mt-c { --mt-c: #7ab7ff; }
+```
+
+The eye loops between paragraph and chart in one saccade instead of two. Cheap, high-leverage.
+
+---
+
+## 6. Concepts to take away
 
 These are what the article and the codebase are really about. Worth re-deriving once you've shipped this.
 
@@ -172,7 +232,7 @@ These are what the article and the codebase are really about. Worth re-deriving 
 
 ---
 
-## 6. Where to go next
+## 7. Where to go next
 
 - **Threshold-picking.** This article hand-waves it; the proper version is "pick the threshold that minimises expected cost given your false-positive / false-negative ratios". Build a precision/recall curve with a draggable cost ratio.
 - **Beta calibration.** Add it as a third option in Part 3. Three params instead of two; sometimes wins.
