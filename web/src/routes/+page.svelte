@@ -625,7 +625,7 @@
     <div class="scrolly">
       <div class="steps">
         <div
-          class="step reveal-step" use:revealOnView
+          class="step reveal-step" class:active={part2Step === 1} use:revealOnView
           use:inView={{ onEnter: () => (part2Step = 1), threshold: 0.6 }}>
           <h3>Well-calibrated (Model A)</h3>
           <p>
@@ -636,7 +636,7 @@
           </p>
         </div>
         <div
-          class="step reveal-step" use:revealOnView
+          class="step reveal-step" class:active={part2Step === 2} use:revealOnView
           use:inView={{ onEnter: () => (part2Step = 2), threshold: 0.6 }}>
           <h3>Over-confident (Model B)</h3>
           <p>
@@ -647,7 +647,7 @@
           </p>
         </div>
         <div
-          class="step reveal-step" use:revealOnView
+          class="step reveal-step" class:active={part2Step === 3} use:revealOnView
           use:inView={{ onEnter: () => (part2Step = 3), threshold: 0.6 }}>
           <h3>Under-confident (Model C)</h3>
           <p>
@@ -657,7 +657,7 @@
           </p>
         </div>
         <div
-          class="step reveal-step" use:revealOnView
+          class="step reveal-step" class:active={part2Step === 4} use:revealOnView
           use:inView={{ onEnter: () => (part2Step = 4), threshold: 0.6 }}>
           <h3>Two metrics, two emphases</h3>
           <p>
