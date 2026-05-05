@@ -863,7 +863,7 @@
                                       metrics.models.under_confident.ece,
                               }
                             : null}
-                        title="Reliability diagram — three flavors"
+                        title="Reliability diagram — three genres"
                         subtitle="x: mean predicted score per bin · y: actual fraction of hits · circles sized by bin count"
                     />
                 {/if}
@@ -873,9 +873,9 @@
         <h3>Why does the gap appear at all?</h3>
         <p class="col">
             Most learners optimize <em>discriminative</em> losses — cross-entropy,
-            hinge, log-loss — that reward putting the right class on the right side
-            of the boundary. Calibration isn't part of the objective, so it isn't
-            guaranteed to fall out of training. A few common ways the gap creeps in:
+            hinge — that reward putting the right class on the right side of the boundary.
+            Calibration isn't part of the objective, so it isn't guaranteed to fall
+            out of training. A few common ways the gap creeps in:
         </p>
         <ul class="col reasons">
             <li>
